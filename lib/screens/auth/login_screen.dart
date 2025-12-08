@@ -12,7 +12,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordCtrl = TextEditingController();
   bool showPasswordField = false;
   bool isLoading = false;
-  String? serverUserId;
 
   @override
   Widget build(BuildContext context) {
@@ -20,75 +19,112 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text("Login")),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: identifierCtrl,
-              decoration: InputDecoration(
-                labelText: "Email or Username",
-              ),
-            ),
-
-            if (showPasswordField) ...[
-              SizedBox(height: 20),
+      body: Center( // Center all content vertically & horizontally
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Email/Username Field
               TextField(
-                controller: passwordCtrl,
-                obscureText: true,
+                controller: identifierCtrl,
                 decoration: InputDecoration(
-                  labelText: "Password",
+                  labelText: "Email or Username",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-            ],
 
-            SizedBox(height: 25),
-            ElevatedButton(
-              child: Text(isLoading
-                  ? "Loading..."
-                  : showPasswordField
-                      ? "Login"
-                      : "Next"),
-              onPressed: () async {
-                if (isLoading) return;
+              if (showPasswordField) ...[
+                SizedBox(height: 20),
+                // Password Field
+                TextField(
+                  controller: passwordCtrl,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: "Password",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
 
-                setState(() => isLoading = true);
+              SizedBox(height: 25),
 
-                if (!showPasswordField) {
-                  final resp = await auth.identifier(identifierCtrl.text);
+              // Login/Next Button with spinner
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: isLoading ? null : () async {
+                    setState(() => isLoading = true);
 
-                  if (resp["exists"] == true) {
-                    if (resp["verified"] == true) {
-                      setState(() => showPasswordField = true);
+                    if (!showPasswordField) {
+                      final resp = await auth.identifier(identifierCtrl.text);
+
+                      if (resp["exists"] == true) {
+                        if (resp["verified"] == true) {
+                          setState(() => showPasswordField = true);
+                        } else {
+                          Navigator.pushNamed(context, "/auth/password");
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("User not found")),
+                        );
+                      }
                     } else {
-                      Navigator.pushNamed(context, "/verify");
+                      final resp = await auth.login(
+                        identifierCtrl.text,
+                        passwordCtrl.text,
+                      );
+
+                      if (resp["token"] != null) {
+                        Navigator.pushReplacementNamed(context, "/");
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(resp["message"] ?? "Login failed"),
+                          ),
+                        );
+                      }
                     }
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text("User not found"),
-                    ));
-                  }
-                } else {
-                  final resp = await auth.login(identifierCtrl.text, passwordCtrl.text);
 
-                  if (resp["token"] != null) {
-                    Navigator.pushReplacementNamed(context, "/home");
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(resp["message"] ?? "Login failed"),
-                    ));
-                  }
-                }
+                    setState(() => isLoading = false);
+                  },
+                  child: isLoading
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text(showPasswordField ? "Logging in..." : "Loading..."),
+                          ],
+                        )
+                      : Text(showPasswordField ? "Login" : "Next"),
+                ),
+              ),
 
-                setState(() => isLoading = false);
-              },
-            ),
-
-            TextButton(
-              child: Text("Create Account"),
-              onPressed: () => Navigator.pushNamed(context, "/register"),
-            )
-          ],
+              TextButton(
+                child: Text("Create Account"),
+                onPressed: () => Navigator.pushNamed(context, "/auth/register"),
+              ),
+            ],
+          ),
         ),
       ),
     );

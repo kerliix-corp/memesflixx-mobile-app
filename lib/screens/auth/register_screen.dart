@@ -19,39 +19,113 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text("Create Account")),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            TextField(controller: emailCtrl, decoration: InputDecoration(labelText: "Email")),
-            SizedBox(height: 15),
-            TextField(controller: usernameCtrl, decoration: InputDecoration(labelText: "Username")),
-            SizedBox(height: 15),
-            TextField(controller: passwordCtrl, decoration: InputDecoration(labelText: "Password"), obscureText: true),
-            SizedBox(height: 30),
-            ElevatedButton(
-              child: Text(isLoading ? "Loading..." : "Register"),
-              onPressed: () async {
-                setState(() => isLoading = true);
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Email Field
+              TextField(
+                controller: emailCtrl,
+                decoration: InputDecoration(
+                  labelText: "Email",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
 
-                final resp = await auth.register(
-                  emailCtrl.text,
-                  usernameCtrl.text,
-                  passwordCtrl.text,
-                );
+              SizedBox(height: 15),
 
-                if (resp["userId"] != null) {
-                  Navigator.pushNamed(context, "/verify");
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(resp["message"] ?? "Failed")),
-                  );
-                }
+              // Username Field
+              TextField(
+                controller: usernameCtrl,
+                decoration: InputDecoration(
+                  labelText: "Username",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
 
-                setState(() => isLoading = false);
-              },
-            ),
-          ],
+              SizedBox(height: 15),
+
+              // Password Field
+              TextField(
+                controller: passwordCtrl,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: "Password",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 30),
+
+              // Register Button with spinner
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          setState(() => isLoading = true);
+
+                          final resp = await auth.register(
+                            emailCtrl.text,
+                            usernameCtrl.text,
+                            passwordCtrl.text,
+                          );
+
+                          if (resp["userId"] != null) {
+                            Navigator.pushNamed(context, "/auth/verify-email");
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(resp["message"] ?? "Failed"),
+                              ),
+                            );
+                          }
+
+                          setState(() => isLoading = false);
+                        },
+                  child: isLoading
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text("Registering..."),
+                          ],
+                        )
+                      : Text("Register"),
+                ),
+              ),
+
+              SizedBox(height: 15),
+
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, "/auth/login"),
+                child: Text("Already have an account? Login"),
+              ),
+            ],
+          ),
         ),
       ),
     );

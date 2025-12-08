@@ -1,3 +1,3 @@
 class ApiConfig {
-  static const String baseUrl = "http://localhost:4000/api";
+  static const String baseUrl = "https://api.kerliix.com/api";
 }

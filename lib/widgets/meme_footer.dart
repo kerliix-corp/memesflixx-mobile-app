@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/meme.dart';
 import '../services/meme_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// New imports for Comment and Share sheets
+import 'share_sheet.dart';
+import 'comment_sheet.dart';
 
 class MemeFooter extends StatefulWidget {
   final MemeModel meme;
@@ -36,6 +39,7 @@ class _MemeFooterState extends State<MemeFooter> {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        // Like Button Section
         IconButton(
           icon: Icon(_liked ? Icons.favorite : Icons.favorite_border,
               color: _liked ? Colors.red : Colors.grey),
@@ -45,14 +49,26 @@ class _MemeFooterState extends State<MemeFooter> {
 
         const SizedBox(width: 20),
 
+        // Comment Button Section (Replaced Placeholder)
         IconButton(
           icon: const Icon(Icons.comment_outlined),
-          onPressed: () {},
+          onPressed: () => CommentSheet.open(context, widget.meme.id),
         ),
         Text("${widget.meme.comments}"),
 
+        const SizedBox(width: 20),
+
+        // Share Button Section (New addition)
+        IconButton(
+          icon: const Icon(Icons.share),
+          onPressed: () => ShareSheet.open(context, widget.meme.mediaUrl),
+        ),
+        // Assuming your MemeModel has a 'shares' property
+        // Text("${widget.meme.shares ?? 0}"), 
+
         const Spacer(),
 
+        // Views Count
         Text("${widget.meme.views} views"),
       ],
     );

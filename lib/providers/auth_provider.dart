@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_app_badger/flutter_app_badger.dart';
+
 import '../config/api.dart';
 import '../models/user.dart';
 
@@ -14,6 +16,46 @@ class AuthProvider with ChangeNotifier {
   UserModel? get user => _user;
   String? get token => _token;
 
+  // -------------------------------
+  // 🔔 NOTIFICATIONS
+  // -------------------------------
+  int unreadCount = 0;
+
+  void setUnreadCount(int count) {
+    unreadCount = count;
+
+    // Update app icon badge
+    if (count > 0) {
+      FlutterAppBadger.updateBadgeCount(count);
+    } else {
+      FlutterAppBadger.removeBadge();
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> loadNotificationsCount() async {
+    if (_token == null) return;
+
+    final res = await http.get(
+      Uri.parse("${ApiConfig.baseUrl}/notifications"),
+      headers: {
+        "Authorization": "Bearer $_token",
+      },
+    );
+
+    if (res.statusCode == 200) {
+      final body = jsonDecode(res.body);
+      final List notifs = body["notifications"] ?? [];
+
+      int count = notifs.where((n) => n["read"] == false).length;
+      setUnreadCount(count);
+    }
+  }
+
+  // -------------------------------
+  // LOGIN IDENTIFIER
+  // -------------------------------
   Future<Map<String, dynamic>> identifier(String identifier) async {
     final res = await http.post(
       Uri.parse("${ApiConfig.baseUrl}/auth/identifier"),
@@ -24,6 +66,9 @@ class AuthProvider with ChangeNotifier {
     return jsonDecode(res.body);
   }
 
+  // -------------------------------
+  // LOGIN PASSWORD
+  // -------------------------------
   Future<Map<String, dynamic>> login(String identifier, String password) async {
     final res = await http.post(
       Uri.parse("${ApiConfig.baseUrl}/auth/password"),
@@ -37,13 +82,21 @@ class AuthProvider with ChangeNotifier {
       _token = body['token'];
       await storage.write(key: "token", value: _token);
       _user = UserModel.fromJson(body['user']);
+
+      // 🔔 Load notifications on login
+      await loadNotificationsCount();
+
       notifyListeners();
     }
 
     return body;
   }
 
-  Future<Map<String, dynamic>> register(String email, String username, String password) async {
+  // -------------------------------
+  // REGISTER
+  // -------------------------------
+  Future<Map<String, dynamic>> register(
+      String email, String username, String password) async {
     final r = await http.post(
       Uri.parse("${ApiConfig.baseUrl}/auth/register"),
       headers: {"Content-Type": "application/json"},
@@ -63,6 +116,9 @@ class AuthProvider with ChangeNotifier {
     return body;
   }
 
+  // -------------------------------
+  // VERIFY EMAIL CODE
+  // -------------------------------
   Future<Map<String, dynamic>> verifyCode(String code) async {
     final r = await http.post(
       Uri.parse("${ApiConfig.baseUrl}/auth/verify"),
@@ -79,13 +135,21 @@ class AuthProvider with ChangeNotifier {
       _token = body['token'];
       await storage.write(key: "token", value: _token);
       _user = UserModel.fromJson(body['user']);
+
+      // 🔔 Load notifications after email verification (welcome notification)
+      await loadNotificationsCount();
+
       notifyListeners();
     }
 
     return body;
   }
 
-  Future<bool> setupProfile(String firstName, String lastName, String dob, String sex) async {
+  // -------------------------------
+  // PROFILE SETUP
+  // -------------------------------
+  Future<bool> setupProfile(
+      String firstName, String lastName, String dob, String sex) async {
     final token = await storage.read(key: "token");
 
     final r = await http.post(

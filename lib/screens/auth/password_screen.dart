@@ -9,118 +9,92 @@ class PasswordScreen extends StatefulWidget {
 
 class _PasswordScreenState extends State<PasswordScreen> {
   final passwordCtrl = TextEditingController();
-  final confirmPasswordCtrl = TextEditingController();
   bool isLoading = false;
-  bool obscurePassword = true;
-  bool obscureConfirm = true;
 
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
 
+    final String identifier =
+        ModalRoute.of(context)!.settings.arguments as String;
+
     return Scaffold(
-      appBar: AppBar(title: Text("Set Password")),
+      appBar: AppBar(title: Text("Enter Password")),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(20),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // Password
+              // Muted identifier with change button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    identifier,
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  SizedBox(width: 10),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: Text("Change"),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 20),
+
               TextField(
                 controller: passwordCtrl,
-                obscureText: obscurePassword,
+                obscureText: true,
                 decoration: InputDecoration(
-                  labelText: "New Password",
+                  labelText: "Password",
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscurePassword ? Icons.visibility : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        obscurePassword = !obscurePassword;
-                      });
-                    },
-                  ),
                 ),
               ),
-              SizedBox(height: 20),
-              // Confirm Password
-              TextField(
-                controller: confirmPasswordCtrl,
-                obscureText: obscureConfirm,
-                decoration: InputDecoration(
-                  labelText: "Confirm Password",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscureConfirm ? Icons.visibility : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        obscureConfirm = !obscureConfirm;
-                      });
-                    },
-                  ),
-                ),
-              ),
+
               SizedBox(height: 25),
-              // Submit Button
+
               SizedBox(
-                width: double.infinity,
                 height: 50,
+                width: double.infinity,
                 child: ElevatedButton(
                   onPressed: isLoading
                       ? null
                       : () async {
-                          final password = passwordCtrl.text.trim();
-                          final confirm = confirmPasswordCtrl.text.trim();
-
-                          if (password.isEmpty || confirm.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Please fill all fields")),
-                            );
-                            return;
-                          }
-
-                          if (password != confirm) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Passwords do not match")),
-                            );
-                            return;
-                          }
-
                           setState(() => isLoading = true);
 
-                          final resp = await auth.setPassword(password);
+                          final resp = await auth.login(
+                              identifier, passwordCtrl.text.trim());
 
-                          setState(() => isLoading = false);
-
-                          if (resp["success"] == true) {
-                            Navigator.pushReplacementNamed(context, "/auth/login");
+                          if (resp["token"] != null) {
+                            if (resp["profileComplete"] == false) {
+                              Navigator.pushReplacementNamed(
+                                  context, "/auth/profile_setup");
+                            } else {
+                              Navigator.pushReplacementNamed(context, "/");
+                            }
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(resp["message"] ?? "Failed")),
+                              SnackBar(
+                                  content: Text(
+                                      resp["message"] ?? "Incorrect password")),
                             );
                           }
+
+                          setState(() => isLoading = false);
                         },
                   child: isLoading
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
+                      ? CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
                         )
-                      : Text("Set Password"),
+                      : Text("Login"),
                 ),
-              ),
+              )
             ],
           ),
         ),

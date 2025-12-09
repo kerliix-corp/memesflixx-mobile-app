@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../widgets/app_header.dart';
 import '../widgets/bottom_navbar.dart';
-import '../utils/version_checker.dart';
-import 'explore_screen.dart';
-import 'upload_screen.dart';
-import 'friends_screen.dart';
-import 'profile/profile_screen.dart';
+import '../providers/feed_provider.dart';
+import '../widgets/meme_card.dart';
+import '../widgets/loading_indicator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,28 +15,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
-
-  // List of screens for each tab
-  final List<Widget> _screens = const [
-    Center(child: Text("Home Screen")), // You can replace with your actual Home content
-    ExploreScreen(),
-    UploadScreen(),
-    FriendsScreen(),
-    ProfileScreen(),
-  ];
+  late FeedProvider feedProvider;
+  final ScrollController _scroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      VersionChecker.checkAppVersion(context);
-    });
-  }
 
-  void _onNavTap(int index) {
-    setState(() {
-      _currentIndex = index;
+    feedProvider = Provider.of<FeedProvider>(context, listen: false);
+    feedProvider.loadInitialFeed();
+
+    _scroll.addListener(() {
+      if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 300) {
+        feedProvider.loadMore();
+      }
     });
   }
 
@@ -44,13 +36,34 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const AppHeader(title: "MemesFlixx"),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: Consumer<FeedProvider>(
+        builder: (context, feed, _) {
+          if (feed.isLoading && feed.memes.isEmpty) {
+            return const Center(child: LoadingIndicator());
+          }
+
+          return RefreshIndicator(
+            onRefresh: () => feedProvider.loadInitialFeed(),
+            child: ListView.builder(
+              controller: _scroll,
+              itemCount: feed.memes.length + (feed.isMoreLoading ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (i == feed.memes.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: LoadingIndicator(),
+                  );
+                }
+
+                return MemeCard(meme: feed.memes[i]);
+              },
+            ),
+          );
+        },
       ),
       bottomNavigationBar: BottomNavbar(
-        currentIndex: _currentIndex,
-        onTap: _onNavTap,
+        currentIndex: 0,
+        onTap: (i) {},
       ),
     );
   }

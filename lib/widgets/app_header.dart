@@ -1,31 +1,28 @@
 import 'package:flutter/material.dart';
-import '../app/routes.dart'; // import routeTitles
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../app/routes.dart';
 
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
-  final String? title; // optional manual title override
-
+  final String? title;
   const AppHeader({super.key, this.title});
 
-  // Get title: manual override first, else from current route
   String _getTitle(BuildContext context) {
     if (title != null) return title!;
     final routeName = ModalRoute.of(context)?.settings.name;
-    if (routeName != null && routeTitles.containsKey(routeName)) {
-      return routeTitles[routeName]!;
-    }
-    return 'MemesFlixx'; // fallback title
+    if (routeTitles.containsKey(routeName)) return routeTitles[routeName]!;
+    return "MemesFlixx";
   }
 
   void _navigate(BuildContext context, String routeName) {
-    final currentRoute = ModalRoute.of(context)?.settings.name;
-    if (currentRoute != routeName) {
-      Navigator.pushNamed(context, routeName);
-    }
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current != routeName) Navigator.pushNamed(context, routeName);
   }
 
   @override
   Widget build(BuildContext context) {
     final headerTitle = _getTitle(context);
+    final unread = Provider.of<AuthProvider>(context).unreadCount;
 
     return AppBar(
       title: Text(headerTitle),
@@ -33,15 +30,39 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         IconButton(
           icon: const Icon(Icons.search),
-          tooltip: 'Search',
           onPressed: () => _navigate(context, '/search'),
         ),
-        IconButton(
-          icon: const Icon(Icons.notifications),
-          tooltip: 'Notifications',
-          onPressed: () => _navigate(context, '/notifications'),
+
+        // Notifications with badge
+        Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications),
+              onPressed: () => _navigate(context, "/notifications"),
+            ),
+
+            if (unread > 0)
+              Positioned(
+                right: 6,
+                top: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    unread.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
-        // Profile button removed
       ],
     );
   }

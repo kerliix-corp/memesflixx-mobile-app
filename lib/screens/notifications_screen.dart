@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import '../../config/api.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -11,93 +13,138 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  bool isLoading = true;
+  bool loading = true;
   List notifications = [];
 
   @override
   void initState() {
     super.initState();
-    loadNotifications();
+    _loadNotifications();
   }
 
-  Future<void> loadNotifications() async {
-    setState(() => isLoading = true);
+  Future<void> _loadNotifications() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.token;
 
-    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    if (token == null) return;
 
-    final res = await Api.get(
-      "/api/notifications",
-      token: token,
+    setState(() => loading = true);
+
+    final res = await http.get(
+      Uri.parse("${ApiConfig.baseUrl}/notifications"),
+      headers: {"Authorization": "Bearer $token"},
     );
 
-    if (res["success"] == true) {
-      setState(() {
-        notifications = res["notifications"];
-        isLoading = false;
-      });
-    } else {
-      setState(() => isLoading = false);
+    if (res.statusCode == 200) {
+      final body = jsonDecode(res.body);
+      notifications = body["notifications"] ?? [];
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to load notifications")),
-      );
+      // update unread count from backend list
+      final unread = notifications.where((n) => n["read"] == false).length;
+      auth.setUnreadCount(unread);
     }
+
+    setState(() => loading = false);
   }
 
-  Future<void> markAsRead(String id) async {
-    final token = Provider.of<AuthProvider>(context, listen: false).token;
+  Future<void> _markAsRead(notifId) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.token;
 
-    await Api.patch("/api/notifications/$id/read", token: token);
+    await http.patch(
+      Uri.parse("${ApiConfig.baseUrl}/notifications/$notifId/read"),
+      headers: {"Authorization": "Bearer $token"},
+    );
 
-    // Update UI instantly
-    setState(() {
-      notifications = notifications.map((n) {
-        if (n["_id"] == id) {
-          n["read"] = true;
-        }
-        return n;
-      }).toList();
-    });
+    // Update UI immediately
+    final index = notifications.indexWhere((n) => n["_id"] == notifId);
+    if (index != -1) {
+      notifications[index]["read"] = true;
+    }
+
+    // Update global unread count
+    final unread = notifications.where((n) => !n["read"]).length;
+    auth.setUnreadCount(unread);
+
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Notifications")),
-      body: RefreshIndicator(
-        onRefresh: loadNotifications,
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : notifications.isEmpty
-                ? const Center(child: Text("No notifications"))
-                : ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: notifications.length,
-                    itemBuilder: (context, index) {
-                      final notif = notifications[index];
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadNotifications,
+              child: notifications.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 200),
+                        Center(child: Text("No notifications yet")),
+                      ],
+                    )
+                  : ListView.builder(
+                      itemCount: notifications.length,
+                      itemBuilder: (context, i) {
+                        final n = notifications[i];
+                        final isUnread = n["read"] == false;
 
-                      return ListTile(
-                        title: Text(
-                          notif["title"] ?? "No title",
-                          style: TextStyle(
-                            fontWeight:
-                                notif["read"] == true ? FontWeight.normal : FontWeight.bold,
+                        return InkWell(
+                          onTap: () => _markAsRead(n["_id"]),
+                          child: Container(
+                            color: isUnread
+                                ? Colors.blue.withOpacity(0.05)
+                                : Colors.transparent,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 14, horizontal: 16),
+                            child: Row(
+                              children: [
+                                // Unread dot
+                                if (isUnread)
+                                  Container(
+                                    width: 10,
+                                    height: 10,
+                                    margin: const EdgeInsets.only(right: 10),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.blue,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  )
+                                else
+                                  const SizedBox(width: 20),
+
+                                // Texts
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        n["title"] ?? "",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: isUnread
+                                              ? FontWeight.bold
+                                              : FontWeight.w400,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        n["message"] ?? "",
+                                        style: const TextStyle(
+                                            fontSize: 14, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        subtitle: Text(notif["message"] ?? ""),
-                        trailing: notif["read"] == true
-                            ? const Icon(Icons.check, color: Colors.green)
-                            : const Icon(Icons.circle, size: 14, color: Colors.red),
-
-                        onTap: () {
-                          if (notif["read"] == false) {
-                            markAsRead(notif["_id"]);
-                          }
-                        },
-                      );
-                    },
-                  ),
-      ),
+                        );
+                      },
+                    ),
+            ),
     );
   }
 }

@@ -9,8 +9,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final identifierCtrl = TextEditingController();
-  final passwordCtrl = TextEditingController();
-  bool showPasswordField = false;
   bool isLoading = false;
 
   @override
@@ -19,13 +17,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text("Login")),
-      body: Center( // Center all content vertically & horizontally
+      body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Email/Username Field
+              // Email or username
               TextField(
                 controller: identifierCtrl,
                 decoration: InputDecoration(
@@ -36,92 +34,60 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              if (showPasswordField) ...[
-                SizedBox(height: 20),
-                // Password Field
-                TextField(
-                  controller: passwordCtrl,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: "Password",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
-
               SizedBox(height: 25),
 
-              // Login/Next Button with spinner
+              // NEXT button
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: isLoading ? null : () async {
-                    setState(() => isLoading = true);
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          setState(() => isLoading = true);
 
-                    if (!showPasswordField) {
-                      final resp = await auth.identifier(identifierCtrl.text);
+                          final resp =
+                              await auth.identifier(identifierCtrl.text.trim());
 
-                      if (resp["exists"] == true) {
-                        if (resp["verified"] == true) {
-                          setState(() => showPasswordField = true);
-                        } else {
-                          Navigator.pushNamed(context, "/auth/password");
-                        }
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("User not found")),
-                        );
-                      }
-                    } else {
-                      final resp = await auth.login(
-                        identifierCtrl.text,
-                        passwordCtrl.text,
-                      );
+                          if (resp["exists"] == true) {
+                            if (resp["verified"] == false) {
+                              // Redirect to verification page
+                              Navigator.pushNamed(
+                                context,
+                                "/auth/verify",
+                                arguments: {"email": resp["email"]},
+                              );
+                            } else {
+                              // Identifier correct → move to password screen
+                              Navigator.pushNamed(
+                                context,
+                                "/auth/password",
+                                arguments: identifierCtrl.text.trim(),
+                              );
+                            }
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("User not found")),
+                            );
+                          }
 
-                      if (resp["token"] != null) {
-                        Navigator.pushReplacementNamed(context, "/");
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(resp["message"] ?? "Login failed"),
-                          ),
-                        );
-                      }
-                    }
-
-                    setState(() => isLoading = false);
-                  },
+                          setState(() => isLoading = false);
+                        },
                   child: isLoading
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            ),
-                            SizedBox(width: 10),
-                            Text(showPasswordField ? "Logging in..." : "Loading..."),
-                          ],
+                      ? CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
                         )
-                      : Text(showPasswordField ? "Login" : "Next"),
+                      : Text("Next"),
                 ),
               ),
 
+              SizedBox(height: 10),
+
               TextButton(
                 child: Text("Create Account"),
-                onPressed: () => Navigator.pushNamed(context, "/auth/register"),
+                onPressed: () =>
+                    Navigator.pushNamed(context, "/auth/register"),
               ),
             ],
           ),
